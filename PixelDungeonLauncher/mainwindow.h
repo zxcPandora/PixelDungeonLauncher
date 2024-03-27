@@ -34,8 +34,8 @@
 #include <QMap>
 #include <QVersionNumber>
 #include <QMutex>
-
-
+#include <QCommandLineOption>
+#include <QCommandLineParser>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -84,6 +84,7 @@ private:
     void LoadProgramSetting();
 
     void CheckJava();
+    void CheckProgram();
     void CheckGame();
     bool CheckGameRunningStatus();
 
@@ -91,6 +92,7 @@ private:
 
     void GetJarFilePath();//暂时无用
     void GetGameVersion();
+    bool HasNewProgramVersion();
 
     bool CmdCheck();
     bool SystemEnvironmentCheck();

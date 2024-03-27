@@ -103,6 +103,16 @@ int main(int argc, char *argv[])
     PublicVariables::SetGameJson(QJsonDocument::fromJson(responseData,&error));
     PublicVariables::SetGameJsonError(error);
 
+    reply = manager->get(QNetworkRequest(QUrl("https://api.github.com/repos/zxcPandora/PixelDungeonLauncher/releases/latest")));
+    eventLoop.exec();
+    if(reply->error() == QNetworkReply::NoError)
+    {
+        responseData = reply->readAll();
+        PublicVariables::SetProgramJson(QJsonDocument::fromJson(responseData,&error));
+        PublicVariables::SetProgramJsonError(error);
+    }
+
+
     // QEventLoop eventloop2;
     // QTimer::singleShot(1000, &eventloop2, SLOT(quit()));
     // eventloop2.exec();

@@ -8,6 +8,7 @@
 
 //启动器设置
 bool shouldDownloadGame = false;
+bool shouldDownloadProgram = false;
 bool shouldAutoLaunchGame = true;
 bool shouldAutoUpdateGame = true;
 bool shouldAutoUpdateLauncher = true;
@@ -23,11 +24,20 @@ QString leftTimeText;
 //Json相关
 QString gameChangeLog;
 QString gameDownloadLink;
+QString programChangeLog;
+QString programDownloadLink;
 
 //其他
 QString gameName;
+QString LastestProgramVersion;
 int LastestGameVersion;
 int CurrentGameVersion;
+QString testbat =QString()+
+    "tasklist|find /i \"PixelDungeonLauncher.exe\">nul\n"+
+    "if %errorlevel%==0 (\n"+
+        "taskkill /F /T /IM \"PixelDungeonLauncher.exe\">nul\n"+
+    ")\n"+
+    "del /f /q .\\PixelDungeonLauncher.exe && move .\\Cache\\PixelDungeonLauncher.exe .\\ && start .\\PixelDungeonLauncher.exe\n";
 
 //暂时无用
 QString jarPath;
@@ -37,7 +47,9 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    ui->btnTest->setVisible(false);
+    setWindowFlags(windowFlags()& ~Qt::WindowMaximizeButtonHint);
+    setFixedSize(this->width(), this->height());
+    //ui->btnTest->setVisible(false);
     ui->progressBar->setRange(0,100);
     ui->progressBar->setMinimum(0);
     ui->progressBar->setMaximum(100);
@@ -58,7 +70,9 @@ MainWindow::MainWindow(QWidget *parent)
     LoadProgramSetting();
     CheckJava();
     ProcessGameJsonData();
+    ProcessProgramJsonData();
     CheckGame();
+    CheckProgram();
 
     if(shouldAutoLaunchGame && !shouldDownloadGame && !gameName.isEmpty()){
         QThread* thread = new QThread;
@@ -201,7 +215,15 @@ void MainWindow::btnUpdateGameClicked()
 
 void MainWindow::btnTestClicked()
 {
-
+    QString path = QCoreApplication::applicationDirPath()+"/Cache/PixelDungeonLauncher.exe"+" --update";
+    path = path.replace("/","\\");
+    qDebug()<<path;
+    //ui->textEdit->setText(path);
+    //QFile::rename(path,path.replace("\\Cache",""));
+    QCoreApplication::exit();
+    QProcess::startDetached("cmd.exe", QStringList()<<path<<" --update");
+    //QCoreApplication::quit();
+    //QProcess::startDetached(QString()+QCoreApplication::applicationDirPath()+"/Cache/PixelDungeonLauncher.exe", QStringList()<<" --update");
 }
 
 void MainWindow::actionAutoLaunchGameTriggered(bool checked)
@@ -227,7 +249,7 @@ void MainWindow::actionAboutTriggered()
                          + "<p align=\"center\"><b>作者信息</b></p>"
                          + "<p align=\"center\">zxcPandora</p>"
                          + "<p align=\"center\">Github: https://github.com/zxcPandora</p>"
-                         + "<p align=\"center\">软件仓库: https://github.com/zxcPandora</p>";
+                         + "<p align=\"center\">软件仓库: https://github.com/zxcPandora/PixelDungeonLauncher</p>";
     aboutBox.setInformativeText(authorInfo);
     aboutBox.setStandardButtons(QMessageBox::Yes);
     aboutBox.button(QMessageBox::Yes)->setText(tr("btnConfirm"));
@@ -268,8 +290,30 @@ void MainWindow::sltDownloadFinished()
     ui->btnUpdateGame->setEnabled(true);
     isDownloadingFile = false;
     downloadFileList.remove(downloadFileList.firstKey());
-    if(!downloadFileList.isEmpty())
+    if(!downloadFileList.isEmpty()){
         StartDownload(downloadFileList.firstKey(),downloadFileList.first());
+    }else if(HasNewProgramVersion()){
+        QFile file(QCoreApplication::applicationDirPath()+"/a.bat");
+        file.open(QIODevice::WriteOnly);
+        QTextStream stream(&file);
+        stream<<testbat;
+        file.close();
+        QMessageBox box;
+        box.setWindowTitle(tr("TIP"));
+        box.setText(tr("programDownloadFinish"));
+        box.setInformativeText(tr("programUpdateAndRestart"));
+        box.setIcon(QMessageBox::Warning);
+        box.setStandardButtons(QMessageBox::Yes|QMessageBox::No);
+        box.button(QMessageBox::Yes)->setText(tr("btnYes"));
+        box.button(QMessageBox::No)->setText(tr("btnNo"));
+        box.setDefaultButton(QMessageBox::Yes);
+        int selected = box.exec();
+        switch(selected){
+        case QMessageBox::Yes:
+            QCoreApplication::quit();
+            QProcess::startDetached("a.bat");
+        }
+    }
 }
 
 void MainWindow::StartDownload(const QString &downloadUrl, const QString &savePath, QObject *parent)
@@ -295,7 +339,7 @@ void MainWindow::CreateProgramSetting()
         set.setValue("Version",QCoreApplication::applicationVersion());
         set.setValue("AutoLaunchGame",false);
         set.setValue("AutoUpdateGame",true);
-        set.setValue("AutoUpdateLauncher",true);
+        set.setValue("AutoUpdateLauncher",false);
         set.sync();
 #ifndef Q_OS_WIN
         system("sync");
@@ -329,10 +373,10 @@ void MainWindow::LoadProgramSetting()
     QSettings set(programPath+"/LauncherSetting.ini",QSettings::IniFormat);
     ui->actionAutoLaunchGame->setChecked(set.value("AutoLaunchGame",false).toBool());
     ui->actionAutoUpdateGame->setChecked(set.value("AutoUpdateGame",true).toBool());
-    ui->actionAutoUpdateLauncher->setChecked(set.value("AutoUpdateLauncher",true).toBool());
+    ui->actionAutoUpdateLauncher->setChecked(set.value("AutoUpdateLauncher",false).toBool());
     shouldAutoLaunchGame = set.value("AutoLaunchGame",false).toBool();
     shouldAutoUpdateGame = set.value("AutoUpdateGame",true).toBool();
-    shouldAutoUpdateLauncher = set.value("AutoUpdateLauncher",true).toBool();
+    shouldAutoUpdateLauncher = set.value("AutoUpdateLauncher",false).toBool();
 }
 
 void MainWindow::OnWindowLoadFinished()
@@ -344,6 +388,15 @@ void MainWindow::OnWindowLoadFinished()
         ui->btnUpdateGame->setEnabled(false);
         QString gamePath = QCoreApplication::applicationDirPath();
         StartDownload(gameDownloadLink, gamePath,this);
+    }
+    if(shouldDownloadProgram){
+        QString savePath = QCoreApplication::applicationDirPath()+"/Cache";
+        if (!QFileInfo(savePath).isDir())
+        {
+            QDir dir;
+            dir.mkpath(savePath);
+        }
+        StartDownload(programDownloadLink,savePath,this);
     }
     QThread* thread = new QThread;
     MyThread* reallyThread = new MyThread;
@@ -375,6 +428,42 @@ void MainWindow::CheckJava()
             break;
         }
         exit(0);
+    }
+}
+
+void MainWindow::CheckProgram()
+{
+    QString programPath = QCoreApplication::applicationDirPath();
+    QDir dir(programPath);
+    if(!dir.exists())
+        return;
+
+    bool hasNewVersion=false;
+    if(shouldAutoUpdateLauncher){
+        hasNewVersion = HasNewProgramVersion();
+    }
+
+    if(hasNewVersion){
+        QMessageBox box;
+        box.setWindowTitle(tr("newProgramVersionTitle"));
+        box.setText(tr("newProgramVersionText"));
+        box.setInformativeText(programChangeLog);
+        box.setIcon(QMessageBox::Warning);
+        box.setStandardButtons(QMessageBox::Yes|QMessageBox::Help|QMessageBox::No);
+        box.button(QMessageBox::Yes)->setText(tr("btnWebSite"));
+        box.button(QMessageBox::No)->setText(tr("btnCancel"));
+        box.button(QMessageBox::Help)->setText(tr("btnDirectDownload"));
+        box.setDefaultButton(QMessageBox::Yes);
+        int selected = box.exec();
+        switch(selected){
+        case QMessageBox::Yes:
+            QDesktopServices::openUrl(QUrl(QString("https://github.com/zxcPandora/PixelDungeonLauncher")));
+            exit(0);
+            break;
+        case QMessageBox::Help:
+            shouldDownloadProgram = true;
+            break;
+        }
     }
 }
 
@@ -589,6 +678,18 @@ void MainWindow::GetGameVersion()
     f.close();
 }
 
+bool MainWindow::HasNewProgramVersion()
+{
+    if(!LastestProgramVersion.isEmpty()){
+        QStringList version1List = QCoreApplication::applicationVersion().split(QLatin1Char('.'));
+        QStringList version2List = LastestProgramVersion.split(QLatin1Char('.'));
+        QVersionNumber v1(version1List[0].toInt(),version1List[1].toInt(),version1List[2].toInt());
+        QVersionNumber v2(version2List[0].toInt(),version2List[1].toInt(),version2List[2].toInt());
+        return v1.normalized() < v2.normalized();
+    }
+    return false;
+}
+
 bool MainWindow::CmdCheck()
 {
     QString msg = RunClientCommand(QStringList()<<"java -verbose");
@@ -671,5 +772,22 @@ void MainWindow::ProcessGameJsonData()
 
 void MainWindow::ProcessProgramJsonData()
 {
-
+    QJsonDocument programJson = PublicVariables::GetProgramJson();
+    if (!programJson.isNull() && PublicVariables::GetProgramJsonError().error == QJsonParseError::NoError){
+        if(programJson.isObject()){
+            QJsonObject object = programJson.object();
+            if(object.contains("tag_name"))
+            {
+                LastestProgramVersion = object["tag_name"].toString();
+            }
+            if(object.contains("assets"))
+            {
+                programDownloadLink = object["assets"].toArray()[0].toObject()["browser_download_url"].toString();
+            }
+            if(object.contains("body"))
+            {
+                programChangeLog = object["body"].toString();
+            }
+        }
+    }
 }

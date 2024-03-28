@@ -1,7 +1,12 @@
 #include <QCoreApplication>
+#include <QApplication>
 #include <QLocale>
 #include <QTranslator>
 #include <QProcess>
+#include <QMessageBox>
+#include <QFile>
+#include <QObject>
+#include <QAbstractButton>
 
 QString RunClientCommand(QStringList command)
 {
@@ -26,7 +31,7 @@ QString RunClientCommand(QStringList command)
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication a(argc, argv);
+    QApplication a(argc, argv);
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();
@@ -36,6 +41,15 @@ int main(int argc, char *argv[])
             a.installTranslator(&translator);
             break;
         }
+    }
+
+    if(!QFile::exists(QCoreApplication::applicationDirPath()+"/PixelDungeonLauncher.exe")){
+        QMessageBox::warning(nullptr, QObject::tr("ERROR"), QObject::tr("LauncherCheck"));
+        return 0;
+    }
+    if(!QFile::exists(QCoreApplication::applicationDirPath()+"/Cache/PixelDungeonLauncher.exe")){
+        QMessageBox::warning(nullptr, QObject::tr("ERROR"), QObject::tr("NewLauncherCheck"));
+        return 0;
     }
 
 #ifdef Q_OS_WIN
@@ -66,7 +80,14 @@ int main(int argc, char *argv[])
 #else
     msg = RunClientCommand(QStringList()<<"idk the way in linux");
 #endif
-    return 0;
+    QMessageBox box;
+    box.setWindowTitle(QObject::tr("TIP"));
+    box.setText(QObject::tr("Updated"));
+    box.setIcon(QMessageBox::Information);
+    box.setStandardButtons(QMessageBox::Yes);
+    box.button(QMessageBox::Yes)->setText(QObject::tr("btnConfirm"));
+    box.setDefaultButton(QMessageBox::Yes);
+    int result = box.exec();
     qDebug()<< msg;
-    return a.exec();
+    return 0;
 }

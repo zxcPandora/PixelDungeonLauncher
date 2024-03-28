@@ -147,8 +147,15 @@
      <string>MenuMisc</string>
     </property>
     <addaction name="actionAbout"/>
+    <addaction name="actionUpdate"/>
+   </widget>
+   <widget class="QMenu" name="menuServer">
+    <property name="title">
+     <string>MenuServer</string>
+    </property>
    </widget>
    <addaction name="menuSetting"/>
+   <addaction name="menuServer"/>
    <addaction name="menuMisc"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -170,6 +177,11 @@
   <action name="actionAutoUpdateLauncher">
    <property name="text">
     <string>MenuActionAutoUpdateLauncher</string>
+   </property>
+  </action>
+  <action name="actionUpdate">
+   <property name="text">
+    <string>MenuActionUpdate</string>
    </property>
   </action>
  </widget>

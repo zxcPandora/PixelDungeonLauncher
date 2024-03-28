@@ -68,6 +68,7 @@ signals:
         void actionAutoUpdateGameTriggered(bool checked);
         void actionAutoUpdateLauncherTriggered(bool checked);
         void actionAboutTriggered();
+        void actionUpdateTriggered();
 
         void OnWindowLoadFinished();
 
@@ -93,6 +94,7 @@ private:
     void GetJarFilePath();//暂时无用
     void GetGameVersion();
     bool HasNewProgramVersion();
+    bool VersionCompare(QStringList version1,QStringList version2);
 
     bool CmdCheck();
     bool SystemEnvironmentCheck();

@@ -49,7 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     setWindowFlags(windowFlags()& ~Qt::WindowMaximizeButtonHint);
     setFixedSize(this->width(), this->height());
-    //ui->btnTest->setVisible(false);
+    ui->btnTest->setVisible(false);
     ui->progressBar->setRange(0,100);
     ui->progressBar->setMinimum(0);
     ui->progressBar->setMaximum(100);
@@ -66,6 +66,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionAutoUpdateGame,SIGNAL(triggered(bool)),this,SLOT(actionAutoUpdateGameTriggered(bool)));
     connect(ui->actionAutoUpdateLauncher,SIGNAL(triggered(bool)),this,SLOT(actionAutoUpdateLauncherTriggered(bool)));
     connect(ui->actionAbout,SIGNAL(triggered()),this,SLOT(actionAboutTriggered()));
+    connect(ui->actionUpdate,SIGNAL(triggered()),this,SLOT(actionUpdateTriggered()));
 
     LoadProgramSetting();
     CheckJava();
@@ -215,15 +216,7 @@ void MainWindow::btnUpdateGameClicked()
 
 void MainWindow::btnTestClicked()
 {
-    QString path = QCoreApplication::applicationDirPath()+"/Cache/PixelDungeonLauncher.exe"+" --update";
-    path = path.replace("/","\\");
-    qDebug()<<path;
-    //ui->textEdit->setText(path);
-    //QFile::rename(path,path.replace("\\Cache",""));
-    QCoreApplication::exit();
-    QProcess::startDetached("cmd.exe", QStringList()<<path<<" --update");
-    //QCoreApplication::quit();
-    //QProcess::startDetached(QString()+QCoreApplication::applicationDirPath()+"/Cache/PixelDungeonLauncher.exe", QStringList()<<" --update");
+
 }
 
 void MainWindow::actionAutoLaunchGameTriggered(bool checked)
@@ -255,6 +248,39 @@ void MainWindow::actionAboutTriggered()
     aboutBox.button(QMessageBox::Yes)->setText(tr("btnConfirm"));
     aboutBox.setDefaultButton(QMessageBox::Yes);
     aboutBox.exec();
+}
+
+void MainWindow::actionUpdateTriggered()
+{
+    if(HasNewProgramVersion()){
+        QMessageBox box;
+        box.setWindowTitle(tr("newProgramVersionTitle"));
+        box.setText(tr("newProgramVersionText")+LastestProgramVersion);
+        box.setInformativeText(programChangeLog);
+        box.setIcon(QMessageBox::Warning);
+        box.setStandardButtons(QMessageBox::Yes|QMessageBox::Help|QMessageBox::No);
+        box.button(QMessageBox::Yes)->setText(tr("btnWebSite"));
+        box.button(QMessageBox::No)->setText(tr("btnCancel"));
+        box.button(QMessageBox::Help)->setText(tr("btnDirectDownload"));
+        box.setDefaultButton(QMessageBox::Yes);
+        int selected = box.exec();
+        switch(selected){
+        case QMessageBox::Yes:
+            QDesktopServices::openUrl(QUrl(QString("https://github.com/zxcPandora/PixelDungeonLauncher")));
+            exit(0);
+            break;
+        case QMessageBox::Help:
+            QString savePath = QCoreApplication::applicationDirPath()+"/Cache";
+            if (!QFileInfo(savePath).isDir())
+            {
+                QDir dir;
+                dir.mkpath(savePath);
+            }
+            ui->btnUpdateGame->setEnabled(false);
+            StartDownload(programDownloadLink,savePath,this);
+            break;
+        }
+    }
 }
 
 void MainWindow::sltProgress(qint64 bytesRead, qint64 totalBytes, qreal progress)
@@ -293,26 +319,17 @@ void MainWindow::sltDownloadFinished()
     if(!downloadFileList.isEmpty()){
         StartDownload(downloadFileList.firstKey(),downloadFileList.first());
     }else if(HasNewProgramVersion()){
-        QFile file(QCoreApplication::applicationDirPath()+"/a.bat");
-        file.open(QIODevice::WriteOnly);
-        QTextStream stream(&file);
-        stream<<testbat;
-        file.close();
         QMessageBox box;
         box.setWindowTitle(tr("TIP"));
         box.setText(tr("programDownloadFinish"));
         box.setInformativeText(tr("programUpdateAndRestart"));
         box.setIcon(QMessageBox::Warning);
-        box.setStandardButtons(QMessageBox::Yes|QMessageBox::No);
-        box.button(QMessageBox::Yes)->setText(tr("btnYes"));
-        box.button(QMessageBox::No)->setText(tr("btnNo"));
+        box.setStandardButtons(QMessageBox::Yes);
+        box.button(QMessageBox::Yes)->setText(tr("btnConfirm"));
         box.setDefaultButton(QMessageBox::Yes);
-        int selected = box.exec();
-        switch(selected){
-        case QMessageBox::Yes:
-            QCoreApplication::quit();
-            QProcess::startDetached("a.bat");
-        }
+        int result = box.exec();
+        QCoreApplication::exit();
+        QProcess::startDetached("LauncherUpdater.exe");
     }
 }
 
@@ -396,6 +413,7 @@ void MainWindow::OnWindowLoadFinished()
             QDir dir;
             dir.mkpath(savePath);
         }
+        ui->btnUpdateGame->setEnabled(false);
         StartDownload(programDownloadLink,savePath,this);
     }
     QThread* thread = new QThread;
@@ -446,7 +464,7 @@ void MainWindow::CheckProgram()
     if(hasNewVersion){
         QMessageBox box;
         box.setWindowTitle(tr("newProgramVersionTitle"));
-        box.setText(tr("newProgramVersionText"));
+        box.setText(tr("newProgramVersionText")+LastestProgramVersion);
         box.setInformativeText(programChangeLog);
         box.setIcon(QMessageBox::Warning);
         box.setStandardButtons(QMessageBox::Yes|QMessageBox::Help|QMessageBox::No);
@@ -683,11 +701,40 @@ bool MainWindow::HasNewProgramVersion()
     if(!LastestProgramVersion.isEmpty()){
         QStringList version1List = QCoreApplication::applicationVersion().split(QLatin1Char('.'));
         QStringList version2List = LastestProgramVersion.split(QLatin1Char('.'));
-        QVersionNumber v1(version1List[0].toInt(),version1List[1].toInt(),version1List[2].toInt());
-        QVersionNumber v2(version2List[0].toInt(),version2List[1].toInt(),version2List[2].toInt());
-        return v1.normalized() < v2.normalized();
+        return VersionCompare(version1List,version2List);
     }
     return false;
+}
+
+bool MainWindow::VersionCompare(QStringList version1, QStringList version2)
+{
+    QVersionNumber v1;
+    QVersionNumber v2;
+
+    switch(version1.length()){
+        case 1:
+            v1 = QVersionNumber(version1[0].toInt());
+            break;
+        case 2:
+            v1 = QVersionNumber(version1[0].toInt(),version1[1].toInt());
+            break;
+        case 3:
+            v1 = QVersionNumber(version1[0].toInt(),version1[1].toInt(),version1[2].toInt());
+            break;
+    }
+    switch(version1.length()){
+        case 1:
+            v2 = QVersionNumber(version2[0].toInt());
+            break;
+        case 2:
+            v2 = QVersionNumber(version2[0].toInt(),version2[1].toInt());
+            break;
+        case 3:
+            v2 = QVersionNumber(version2[0].toInt(),version2[1].toInt(),version2[2].toInt());
+            break;
+    }
+
+    return v1.normalized() < v2.normalized();
 }
 
 bool MainWindow::CmdCheck()
@@ -774,20 +821,35 @@ void MainWindow::ProcessProgramJsonData()
 {
     QJsonDocument programJson = PublicVariables::GetProgramJson();
     if (!programJson.isNull() && PublicVariables::GetProgramJsonError().error == QJsonParseError::NoError){
-        if(programJson.isObject()){
-            QJsonObject object = programJson.object();
-            if(object.contains("tag_name"))
-            {
-                LastestProgramVersion = object["tag_name"].toString();
-            }
-            if(object.contains("assets"))
-            {
-                programDownloadLink = object["assets"].toArray()[0].toObject()["browser_download_url"].toString();
-            }
-            if(object.contains("body"))
-            {
-                programChangeLog = object["body"].toString();
-            }
+        QJsonDocument programJson = PublicVariables::GetProgramJson();
+        QJsonArray object = programJson.array();
+        QString tempVersion;
+
+        QStringList version1List = QCoreApplication::applicationVersion().split(QLatin1Char('.'));
+        QStringList version2List;
+        QString tempDownloadLink;
+        QString tempBody;
+        for(int i=0;i<object.size();i++){
+            QJsonObject tag = object.at(i).toObject();
+
+            if(tag.contains("target_commitish") && !tag["target_commitish"].toString().contains("Magic-Ling"))
+                continue;
+
+            if(tag.contains("tag_name")
+                    && (version2List = tag["tag_name"].toString().split(QLatin1Char('.'))).isEmpty()
+                || !VersionCompare(tempVersion.split(QLatin1Char('.')),version2List)
+                || !VersionCompare(version1List,version2List))
+                continue;
+
+            if(tag["assets"].toArray().isEmpty())
+                continue;
+
+            tempVersion = tag["tag_name"].toString();
+            tempDownloadLink = tag["assets"].toArray()[1].toObject()["browser_download_url"].toString();
+            tempBody = tag["body"].toString();
         }
+        LastestProgramVersion = tempVersion;
+        programDownloadLink = tempDownloadLink;
+        programChangeLog = tempBody;
     }
 }

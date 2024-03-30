@@ -40,10 +40,7 @@ bool DownloadFile::startDownload()
         dir.mkpath(m_savePath);
     }
     fileName.prepend(m_savePath + '/');
-    if (QFile::exists(fileName))//判断是否存在此文件
-    {
-        QFile::remove(fileName);
-    }
+    fileName = changeFileExtension(fileName,"tmp");
     m_fileptr = openFileForWrite(fileName);
     if (!m_fileptr)
         return false;
@@ -61,6 +58,7 @@ void DownloadFile::Finished()
 {
     QFileInfo fi;
     if (m_fileptr) {
+        m_fileptr->rename(changeFileExtension(m_fileptr->fileName(),PublicVariables::GetDownloadFileName().remove(0,PublicVariables::GetDownloadFileName().lastIndexOf('.')+1)));
         fi.setFile(m_fileptr->fileName());
         m_fileptr->close();
         m_fileptr.reset();
@@ -129,6 +127,19 @@ void DownloadFile::startRequest(const QUrl& requestedUrl)
         return ;
     }
 
+}
+
+QString DownloadFile::changeFileExtension(const QString &filePath, const QString &newExtension)
+{
+    QFile file(filePath);
+    QString newFileName = file.fileName();
+    newFileName.truncate(newFileName.lastIndexOf('.')); // 移除当前的后缀名
+    newFileName += '.' + newExtension; // 添加新的后缀名
+    if (QFile::exists(filePath))//判断是否存在此文件
+    {
+        QFile::remove(filePath);
+    }
+    return newFileName;
 }
 std::unique_ptr<QFile> DownloadFile::openFileForWrite(const QString& fileName)
 {

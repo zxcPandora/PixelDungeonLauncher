@@ -78,11 +78,19 @@ int main(int argc, char *argv[])
     loading.setWindowModality(Qt::ApplicationModal);
     loading.show();
 
-
     QNetworkAccessManager *manager = new QNetworkAccessManager();
-    QNetworkReply *reply = manager->get(QNetworkRequest(QUrl("https://rust.coldmint.top/ftp/ling/json/GameUpdate.json")));
     QByteArray responseData;
+    QJsonParseError gameJsonError,programJsonError;
     QEventLoop eventLoop;
+#if (QT_VERSION >= QT_VERSION_CHECK(5,15,0))
+    manager->setTransferTimeout(5000);
+#else
+    QTimer timer;
+    QObject::connect(&timer, SIGNAL(timeout()), &eventLoop, SLOT(quit()));
+    timer.setSingleShot(true);
+    timer.start(timeout);
+#endif
+    QNetworkReply *reply = manager->get(QNetworkRequest(QUrl("https://rust.coldmint.top/ftp/ling/json/GameUpdate.json")));
     QObject::connect(manager, SIGNAL(finished(QNetworkReply*)), &eventLoop, SLOT(quit()));
     eventLoop.exec();
     if(reply->error() != QNetworkReply::NoError)
@@ -96,20 +104,19 @@ int main(int argc, char *argv[])
         box.setDefaultButton(QMessageBox::Yes);
         box.button(QMessageBox::Yes)->setText(QObject::tr("btnConfirm"));
         box.exec();
-        return 0;
+    }else{
+        responseData = reply->readAll();
+        PublicVariables::SetGameJson(QJsonDocument::fromJson(responseData,&gameJsonError));
+        PublicVariables::SetGameJsonError(gameJsonError);
     }
-    responseData = reply->readAll();
-    QJsonParseError error;
-    PublicVariables::SetGameJson(QJsonDocument::fromJson(responseData,&error));
-    PublicVariables::SetGameJsonError(error);
 
     reply = manager->get(QNetworkRequest(QUrl("https://api.github.com/repos/zxcPandora/PixelDungeonLauncher/releases")));
     eventLoop.exec();
     if(reply->error() == QNetworkReply::NoError)
     {
         responseData = reply->readAll();
-        PublicVariables::SetProgramJson(QJsonDocument::fromJson(responseData,&error));
-        PublicVariables::SetProgramJsonError(error);
+        PublicVariables::SetProgramJson(QJsonDocument::fromJson(responseData,&programJsonError));
+        PublicVariables::SetProgramJsonError(programJsonError);
     }
 
 
@@ -118,9 +125,8 @@ int main(int argc, char *argv[])
     // eventloop2.exec();
     loading.close();
 
-
-
     MainWindow w;
     w.show();
+
     return a.exec();
 }

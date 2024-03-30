@@ -42,6 +42,7 @@ private Q_SLOTS:
 
 private:
     void startRequest(const QUrl& requestedUrl);
+    QString changeFileExtension(const QString &filePath, const QString &newExtension);
     std::unique_ptr<QFile> openFileForWrite(const QString& fileName);
 
 private:

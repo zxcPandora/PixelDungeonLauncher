@@ -252,8 +252,8 @@ void MainWindow::actionAboutTriggered()
 
 void MainWindow::actionUpdateTriggered()
 {
+    QMessageBox box;
     if(HasNewProgramVersion()){
-        QMessageBox box;
         box.setWindowTitle(tr("newProgramVersionTitle"));
         box.setText(tr("newProgramVersionText")+LastestProgramVersion);
         box.setInformativeText(programChangeLog);
@@ -280,6 +280,14 @@ void MainWindow::actionUpdateTriggered()
             StartDownload(programDownloadLink,savePath,this);
             break;
         }
+    }else{
+        box.setWindowTitle(tr("TIP"));
+        box.setText(tr("noUpdateText"));
+        box.setIcon(QMessageBox::Information);
+        box.setStandardButtons(QMessageBox::Yes);
+        box.button(QMessageBox::Yes)->setText(tr("btnConfirm"));
+        box.setDefaultButton(QMessageBox::Yes);
+        box.exec();
     }
 }
 
@@ -299,7 +307,6 @@ void MainWindow::sltProgress(qint64 bytesRead, qint64 totalBytes, qreal progress
         downloadTime.restart();
     }
 
-
     QString title = QString::number(progress*100,'f',2)+"%  "
                     +QString::number(bytesRead/(1024.0*1024.0),'f',2)+"MB/"
                     +QString::number(totalBytes/(1024.0*1024.0),'f',2)+"MB "
@@ -311,13 +318,22 @@ void MainWindow::sltProgress(qint64 bytesRead, qint64 totalBytes, qreal progress
 
 void MainWindow::sltDownloadFinished()
 {
+    QString title = QString::number(ui->progressBar->value(),'f',2)+"%  "
+                    +QString::number(lastByteRead/(1024.0*1024.0),'f',2)+"MB/"
+                    +QString::number(lastByteRead/(1024.0*1024.0),'f',2)+"MB ";
+    ui->labelDownloadRate->setText(title);
     ui->labelDownloadStatus->setText(tr("DownloadFinished")+PublicVariables::GetDownloadFileName());
     ui->btnLauncher->setEnabled(true);
     ui->btnUpdateGame->setEnabled(true);
     isDownloadingFile = false;
+    qDebug() << "Key:" << downloadFileList.firstKey();
     downloadFileList.remove(downloadFileList.firstKey());
+    foreach (const QString& key, downloadFileList.keys()) {
+        qDebug() << "Key:" << key << "Value:" << downloadFileList.value(key);
+        qDebug() << "Key:" << downloadFileList.firstKey();
+    }
     if(!downloadFileList.isEmpty()){
-        StartDownload(downloadFileList.firstKey(),downloadFileList.first());
+        StartDownload(downloadFileList.firstKey(),downloadFileList.first(),this);
     }else if(HasNewProgramVersion()){
         QMessageBox box;
         box.setWindowTitle(tr("TIP"));
@@ -342,6 +358,7 @@ void MainWindow::StartDownload(const QString &downloadUrl, const QString &savePa
         return;
 
     isDownloadingFile = true;
+    lastByteRead = 0;
     DownloadFile* dT;
     dT = new DownloadFile(downloadUrl, savePath,parent);
     dT->startDownload();

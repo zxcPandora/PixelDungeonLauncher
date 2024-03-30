@@ -65,7 +65,7 @@
     <message>
         <location filename="mainwindow.ui" line="154"/>
         <source>MenuServer</source>
-        <translation type="unfinished">切换服务器（未完成）</translation>
+        <translation>切换线路（未完成）</translation>
     </message>
     <message>
         <location filename="mainwindow.ui" line="164"/>

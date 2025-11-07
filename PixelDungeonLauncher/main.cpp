@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     timer.setSingleShot(true);
     timer.start(timeout);
 #endif
-    QNetworkReply *reply = manager->get(QNetworkRequest(QUrl("https://rust.coldmint.top/ftp/ling/json/GameUpdate.json")));
+    QNetworkReply *reply = manager->get(QNetworkRequest(QUrl("https://gameupdate.insrv.mlpd.spldream.com/MLPD/GameUpdate.json")));
     QObject::connect(manager, SIGNAL(finished(QNetworkReply*)), &eventLoop, SLOT(quit()));
     eventLoop.exec();
     if(reply->error() != QNetworkReply::NoError)
